@@ -8,15 +8,22 @@ import io.ballerina.compiler.syntax.tree.ModuleMemberDeclarationNode;
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.Node;
 import io.ballerina.compiler.syntax.tree.NodeList;
+import io.ballerina.compiler.syntax.tree.ObjectTypeDescriptorNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.Token;
+import io.ballerina.compiler.syntax.tree.TypeDefinitionNode;
+import io.ballerina.compiler.syntax.tree.TypeDescriptorNode;
 import io.ballerina.compiler.syntax.tree.TypeReferenceNode;
+import io.ballerina.compiler.syntax.tree.TypeReferenceTypeDescNode;
 import org.ballerinalang.bindgen.exceptions.BindgenException;
 import org.ballerinalang.bindgen.model.BFunction;
 import org.ballerinalang.bindgen.model.JClass;
 import org.ballerinalang.bindgen.model.JConstructor;
 import org.ballerinalang.bindgen.model.JField;
 import org.ballerinalang.bindgen.model.JMethod;
+import org.ballerinalang.model.tree.TypeDefinition;
+import org.ballerinalang.model.tree.types.ObjectTypeNode;
+import org.ballerinalang.model.tree.types.TypeNode;
 
 import java.util.AbstractMap;
 import java.util.Arrays;
@@ -24,6 +31,9 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
+import java.util.Set;
+import java.util.stream.IntStream;
 
 import static org.ballerinalang.bindgen.utils.BindgenConstants.BALLERINA_RESERVED_WORDS;
 import static org.ballerinalang.bindgen.utils.BindgenNodeFactory.createFunctionDefinitionNode;
@@ -76,16 +86,69 @@ public class BindgenTreeModifier {
 
     private NodeList<ModuleMemberDeclarationNode> modifyModuleMemberDeclarationNode(
             NodeList<ModuleMemberDeclarationNode> members) throws BindgenException {
-        members = updateTypeReferences(members);
-        members = updateInstanceMethods(members);
-        members = updateInstanceFields(members);
-        members = updateConstructors(members);
-        members = updateStaticMethods(members);
-        members = updateStaticFields(members);
-        members = updateExternalMethods(members);
+        if (jClass.isInterface()) {
+            // modify module members for a java interface
 
+        } else {
+            // modify module members for a java class
+            members = updateTypeReferences(members);
+            members = updateInstanceMethods(members);
+            members = updateInstanceFields(members);
+            members = updateConstructors(members);
+            members = updateStaticMethods(members);
+            members = updateStaticFields(members);
+            members = updateExternalMethods(members);
+        }
         return members;
 
+    }
+
+    /**
+     * Scans the module members for the first object type definition.
+     *
+     * <code>members</code> consists of the members of the parsed ballerina template for
+     * a ballerina object type representing a Java interface. The members should include
+     * an {@link TypeDefinition} for the following ballerina fragment in the
+     * template:
+     *
+     * <code>
+     *     public type TypeName object {
+     *         // ...
+     *     };
+     * </code>
+     * @param members the module members
+     * @return the first {@link TypeDefinition} or null
+     * @throws IllegalStateException if no such {@link TypeDefinition} is present in the module members
+     */
+    private AbstractMap.SimpleEntry<Integer, TypeDefinitionNode> lookupObjectTypeDescriptor(
+            NodeList<ModuleMemberDeclarationNode> members) {
+        OptionalInt idx = IntStream.range(0, members.size())
+            .filter(i -> members.get(i).kind() == SyntaxKind.TYPE_DEFINITION)
+            .filter(i -> {
+                final TypeDefinitionNode type = (TypeDefinitionNode)members.get(i);
+                if (! type.typeName().text().equals(jClass.getShortClassName())) {
+                    return false;
+                }
+                // TODO (gubaer)
+                // make sure this is the definition of an object type - how?
+                // final TypeDescriptorNode desc = (TypeDescriptorNode) type.typeDescriptor();
+                return true;
+            })
+            .findFirst();
+        if (idx.isEmpty()) {
+            throw new IllegalStateException(
+                String.format(
+                    "expected object type node with name '%s' in module members, didn't find one",
+                    jClass.getShortClassName())
+            );
+        }
+        return new AbstractMap.SimpleEntry(idx.getAsInt(), members.get(idx.getAsInt()));
+    }
+
+    private NodeList<ModuleMemberDeclarationNode> updateInterfaceMethods(NodeList<ModuleMemberDeclarationNode> members) {
+        AbstractMap.SimpleEntry<Integer, TypeDefinitionNode> objectType = lookupObjectTypeDescriptor(members);
+
+        return null;
     }
 
     private NodeList<ModuleMemberDeclarationNode> updateTypeReferences(NodeList<ModuleMemberDeclarationNode> members)

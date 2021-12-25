@@ -252,4 +252,13 @@ public class JClass {
     public Map<String, String> getSuperClassPackage() {
         return superClassPackage;
     }
+
+    /**
+     * Replies true if this is a Java interface
+     *
+     * @return true if this is a Java interface
+     */
+    public boolean isInterface() {
+        return currentClass.isInterface();
+    }
 }

@@ -46,6 +46,7 @@ public class BindgenFileGenerator {
 
     private final BindgenEnv env;
     private final Path jClassTemplatePath = Paths.get(DEFAULT_TEMPLATE_DIR, "jclass.bal");
+    private final Path jInterfaceTemplatePath = Paths.get(DEFAULT_TEMPLATE_DIR, "jinterface.bal");
     private final Path jEmptyClassTemplatePath = Paths.get(DEFAULT_TEMPLATE_DIR, "empty_jclass.bal");
     private final Path jErrorTemplatePath = Paths.get(DEFAULT_TEMPLATE_DIR, "jerror.bal");
     private static final CharSequence UNIX_FS = "/";
@@ -67,8 +68,13 @@ public class BindgenFileGenerator {
             // Generate Ballerina empty class bindings for dependent Java classes.
             return generateFromTemplate(jEmptyClassTemplatePath);
         } else {
-            // Generate Ballerina class bindings for Java classes.
-            syntaxTree = generateFromTemplate(jClassTemplatePath);
+            if (jClass.isInterface()) {
+                // Generate Ballerina class bindings for a Java interface.
+                syntaxTree = generateFromTemplate(jInterfaceTemplatePath);
+            } else {
+                // Generate Ballerina class bindings for Java classes.
+                syntaxTree = generateFromTemplate(jClassTemplatePath);
+            }
             return generateSyntaxTree();
         }
     }
